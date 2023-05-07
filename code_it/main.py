@@ -62,7 +62,8 @@ planner = Planner()
 coder = Coder()
 refactor = Refactor()
 
-task = "Your job is to generate 10 cat jokes and save in a file called 'cat_jokes.txt'. Be creative!"
+with open("task.txt") as fp:
+    task = fp.read()
 
 planner_prompt = planner.prompt_template.format(task=task)
 plan = planner_llm._call(planner_prompt, stop=[planner.stop_string])
