@@ -85,3 +85,13 @@ refactored = refactoring_llm._call(refactor.prompt_template.format(source_code=c
 print("After refactoring")
 code_editor.overwrite_code(refactored)
 print(code_editor.display_code())
+
+
+print("Trimming MD syntax")
+code_editor.source_code[0] = code_editor.source_code[0].replace("```python", "")
+code_editor.source_code[-1] = code_editor.source_code[-1].replace("```", "")
+code_editor.overwrite_code(code_editor.display_code())
+
+# TODO: run code
+# TODO: test output
+# TODO: debug code
