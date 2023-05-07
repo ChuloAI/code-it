@@ -12,8 +12,13 @@ It is **not** an autonomous agent - at most, we could call it semi-autonomous.
 
 ## Running it
 
+WARNING: the LLM will run arbitrary code, use it at your own risk.
 Execute the main:
 `python -m code_it.main`
 
+This will save the code in `persistent_source.py`
+
 
 Change the task in the `task.txt` file to perform another task.
+
+
