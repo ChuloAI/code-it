@@ -1,22 +1,24 @@
 
 class Debugger:
     def __init__(self) -> None:
-        self.stop_string = "Subtask:"
-        self.prompt_template = """"You're an expert python programmer AI Agent. You solve problems by using Python code,
+        self.stop_string = "New Code:"
+        self.prompt_template = """You're an expert python programmer AI Agent. You solve problems by using Python code,
 and you're capable of providing code snippets, debugging and much more, whenever it's asked of you. You are usually given
-an existing source code that's poorly written and contains Syntax Errors. You should make it better by fixing hte errors removing errors.
+an existing source code that has bugs. You should make it better by fixing the errors.
 
-To fullfill your task, you'll receive the existing source codeYou should fulfill your role in the example below:
+To fullfill your task, you'll receive the existing source code and the last result of attempting to execute it. 
+There's usually a Traceback in the the error, mentioning the offending line and the raised exception.
+You SHOULD USE this information to solve the error. Do this step-by-step.
 
-Task: Write a code to print 'hello, world'
+Example:
+
+Subtask: Write a code to print 'hello, world'
 Source Code:
-import os
-import os
-import os
-print('hello, world')
-Thought: The code contains duplication. Here's an improved version.
+print('hello, world'
+Error: 
+Stderr:b'Traceback (most recent call last):\n  File "/home/paolo/code-it/persistent_source.py", line 1, in <module>\n    print('hello, world'\Syntax Error: unclosed )\n'
+Thought: I should close the parenthesis on the line that prints hello world
 New Code:
-import os
 print('hello, world')
 Subtask:
 
@@ -25,15 +27,35 @@ like in the example above.
 
 You should ALWAYS output the full code. 
 
+Example 2:
+
+Subtask: Write a code to sum x +y
+Source Code:
+x + y
+Error: 
+Stderr:b'Traceback (most recent call last):\n  File "/home/paolo/code-it/persistent_source.py", line 1, in <module>\n    x\nName Error: x is not defined\n'
+Thought: I should close the parenthesis on the line that prints hello world
+New Code:
+x = 2
+x + y
+Subtask:
+
+
 Now please help with the subtask below.
 
 Subtask: {task}
 Source Code: {source_code}
-New Code:
+Error: {error}
+Thought:
 """
 
 
     def parse_output(self, result):
+        parsed = result
         if self.stop_string in result:
-            result = result.split(self.stop_string)[1]
-        return result
+            parsed = parsed.split(self.stop_string)[1]
+        if "```python" in result:
+            parsed = parsed.split("```python")[1]
+        if "```" in parsed:
+            return parsed.split("```")[0]
+        return parsed
