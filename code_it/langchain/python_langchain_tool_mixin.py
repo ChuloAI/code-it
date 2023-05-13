@@ -1,4 +1,4 @@
-from code_it.code_editor.base_langchain_tool_mixin import LangchainToolMixin
+from code_it.langchain.base_langchain_tool_mixin import LangchainToolMixin
 from code_it.code_editor.python_editor import PythonCodeEditor
 from langchain.agents import Tool
 
