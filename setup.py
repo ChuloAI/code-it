@@ -14,7 +14,7 @@ requirements = read("requirements.txt")
 
 setup(
     name="code_it",
-    version="0.1.4",
+    version="0.1.5",
     author="Paolo Rechia",
     author_email="paolorechia@gmail.com",
     maintainer="Paolo Rechia",
