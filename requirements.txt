@@ -1,4 +1,3 @@
 requests
 langchain
-pydantic
 virtualenv

@@ -1,16 +1,5 @@
 from code_it.code_editor.base import CodeEditorTooling
 from langchain.agents import Tool
-from pydantic import BaseModel, Field
-
-from typing import List
-
-class CodeEditorChangeCodeLineInput(BaseModel):
-    input_code: str = Field()
-    line: int = Field()
-
-class CodeEditorDeleteCodeLinesInput(BaseModel):
-    lines: List[int] = Field()
-
 
 class LangchainToolMixin(CodeEditorTooling):
     def __init__(self) -> None:
