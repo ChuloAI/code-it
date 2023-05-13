@@ -22,13 +22,14 @@ class VirtualenvManager:
         self.dependencies = []
 
     def add_dependency(self, dependency):
+        logger.info("Adding dependency '%s' ", dependency)
         self.dependencies.append(dependency)
-
 
     def create_env(self):
         logger.info("Creating virtualenv at path '%s' ", self.path)
-        cli_run([self.path])
+        cli_run([self.path], setup_logging=False)
 
     def install_dependencies(self):
+        logger.info("Installing dependencies")
         process = subprocess.run([self.python_interpreter, "-m", "pip", "install"] + self.dependencies, capture_output=True)
         return process

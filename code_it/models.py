@@ -92,3 +92,11 @@ def build_text_generation_web_ui_client_llm(
         stop_parameter_name="stopping_strings",
         response_extractor=response_extractor,
     )
+
+
+
+def build_llama_base_llm(prompt_url="http://127.0.0.1:8000/prompt", parameters=None):
+    if parameters is None:
+        parameters = {"temperature": 0, "max_new_tokens": 256, "stop": ["Observation:"]}
+
+    return HTTPBaseLLM(prompt_url=prompt_url, parameters=parameters)
