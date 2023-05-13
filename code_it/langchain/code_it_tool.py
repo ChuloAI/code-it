@@ -19,7 +19,7 @@ class CodeItTool:
     def execute_task(self, task):
         code_editor = PythonCodeEditor()
         task_executor  = TaskExecutor(code_editor, self.model_builder)
-        task_executor.execute(task)
+        return task_executor.execute(task)
 
     def build_execute_task(self):
         return Tool(

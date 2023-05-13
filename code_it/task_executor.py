@@ -88,7 +88,7 @@ class TaskExecutor:
 
         if "Succeeded" in result:
             logger.info("Source code is functional!")
-            return "Task Success"
+            return "Task Success: " + result
         else:
             logger.info("Failed to generate an executable source code.")
-            return "Task Failed"
+            return "Task Failed: " + result
