@@ -18,5 +18,5 @@ class PythonCodeEditor(CodeEditorTooling):
         logger.info("Python interpreter set to %s", self.interpreter)
 
     def install_dependencies(self):
-        process = self.venv.install_dependencies().stdout
+        process = self.venv.install_dependencies()
         return process

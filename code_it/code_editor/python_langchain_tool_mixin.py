@@ -1,5 +1,5 @@
-from code_editor.base_langchain_tool_mixin import LangchainToolMixin
-from code_editor.python_editor import PythonCodeEditor
+from code_it.code_editor.base_langchain_tool_mixin import LangchainToolMixin
+from code_it.code_editor.python_editor import PythonCodeEditor
 from langchain.agents import Tool
 from pydantic import BaseModel, Field
 

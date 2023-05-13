@@ -1,4 +1,4 @@
-from code_editor.base import CodeEditorTooling
+from code_it.code_editor.base import CodeEditorTooling
 from langchain.agents import Tool
 from pydantic import BaseModel, Field
 
@@ -13,8 +13,8 @@ class CodeEditorDeleteCodeLinesInput(BaseModel):
 
 
 class LangchainToolMixin(CodeEditorTooling):
-    def __init__(self, filename="persistent_source.py", interpreter="python3") -> None:
-        super().__init__(filename, interpreter)
+    def __init__(self) -> None:
+        super().__init__()
 
     def build_add_code_tool(self):
         return Tool(
