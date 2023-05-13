@@ -4,9 +4,10 @@ from typing import List
 
 
 class CodeEditorTooling:
-    def __init__(self, filename = "persistent_source.py") -> None:
+    def __init__(self, filename = "persistent_source.py", interpreter = "python3") -> None:
         self.source_code: List[str] = []
         self.filename = filename
+        self.interpreter = "python3"
         self.new_code_candidate = ""
     
     def push_new_code_candidate(self, new_code: str):
@@ -55,7 +56,7 @@ class CodeEditorTooling:
             fp.write("\n".join(self.source_code))
 
     def run_code(self, *args, **kwargs):
-        completed_process = subprocess.run(["python3", self.filename], capture_output=True, timeout=10)
+        completed_process = subprocess.run([self.interpreter, self.filename], capture_output=True, timeout=10)
 
         print(completed_process, completed_process.stderr)
         succeeded = "Succeeded" if completed_process.returncode == 0 else "Failed"

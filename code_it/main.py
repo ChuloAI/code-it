@@ -1,6 +1,6 @@
 """This modules experiments building logic from scratch, without langchain."""
 from code_it.models import build_text_generation_web_ui_client_llm
-from code_it.code_editor import CodeEditorTooling
+from code_it.code_editor.python import PythonCodeEditor
 from code_it.planner import Planner
 from code_it.coder import Coder
 from code_it.refactor import Refactor
