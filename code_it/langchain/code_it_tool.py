@@ -24,7 +24,7 @@ class CodeItTool:
     def build_execute_task(self):
         return Tool(
             name="ExecuteCodingTask",
-            func=self.add_code,
+            func=self.execute_task,
             description="""Use it to execute a coding task. Example:
 Action: ExecuteCodingTask
 Action Input:
