@@ -8,7 +8,7 @@ def test_code_editor_init():
 
 def test_code_run():
     code_editor = CodeEditorTooling()
-    code_editor.source_code = ["print('hello, world')"]
+    code_editor.overwrite_code("print('hello, world')")
     result = code_editor.run_code()
     succeeded = "Succeeded"
     stdout = b'hello, world\n'
@@ -18,7 +18,8 @@ def test_code_run():
 
 def test_code_run_exception():
     code_editor = CodeEditorTooling()
-    code_editor.source_code = ["print('hello, world'"]
+    code_editor.overwrite_code("print('hello, world'")
+
     result = code_editor.run_code()
     assert "Program Failed" in result
     assert "SyntaxError" in result
@@ -50,9 +51,10 @@ def test_code_delete_lines():
 
 def test_code_display():
     code_editor = CodeEditorTooling()
-    code_editor.source_code = ["print('hello')", "print('world')"]
+    code_editor.overwrite_code("print('hello')\nprint('world')")
     assert code_editor.display_code() == (
-"""print('hello')
+"""
+print('hello')
 print('world')
 """
 )
