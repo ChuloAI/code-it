@@ -103,7 +103,6 @@ Thought: In this example, the program failed due to SyntaxError
 
 
 
-
 """,
         )
 

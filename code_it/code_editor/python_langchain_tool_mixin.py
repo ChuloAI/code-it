@@ -21,6 +21,39 @@ class LangchainPythonToolMixin(LangchainToolMixin, PythonCodeEditor):
         return f"Program {succeeded}\nStdout:{stdout}\nStderr:{stderr}"
 
 
+    def run_code_simplified(self, input_code):
+        self.overwrite_code(input_code)
+        return self.run_code()
+
+    def build_run_code(self, input_code):
+        return Tool(
+            name="RunCode",
+            func=self.run_code_simplified,
+            description="""Use to execute the script. Should always be called like this:
+
+Action: RunCode
+Action Input:
+print("hello, world")
+
+Observation:Program Succeeded
+Stdout:b'Hello, world!'
+Stderr:b''
+
+Thought: In this example, the output of the program was b'Hello, world!'
+Task Completed: the task was successfully completed
+
+Example 2 (failure example):
+Action: RunCode
+Action Input:
+print("hello, world)
+Observation:Program Failed
+Stdout:b''
+Stderr:b''^^^^^\nSyntaxError: invalid syntax\n'
+
+Thought: In this example, the program failed due to SyntaxError
+"""
+)
+
     def build_pip_install(self):
         return Tool(
             name="PipInstall",
