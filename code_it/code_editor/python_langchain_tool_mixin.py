@@ -15,13 +15,16 @@ class CodeEditorDeleteCodeLinesInput(BaseModel):
 
 class LangchainPythonToolMixin(LangchainToolMixin, PythonCodeEditor):
     def __init__(self, filename="persistent_source.py") -> None:
-        super().__init__(filename)
+        super().__init__()
+        self.filename = filename
         # Always create env
         self.create_env()
 
     def pip_install(self, dependency):
         """Promptly install dependencies."""
         self.add_dependency(dependency)
+        # Trim pip install, we're already injecting it.
+        dependency = dependency.replace("pip install", "").strip()
         completed_process = self.install_dependencies()
         succeeded = "Succeeded" if completed_process.returncode == 0 else "Failed"
         stdout = completed_process.stdout
