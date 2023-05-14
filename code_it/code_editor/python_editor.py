@@ -4,11 +4,12 @@ from code_it.code_editor.virtualenv_manager import VirtualenvManager
 
 logger = logging.getLogger(__name__)
 
+
 class PythonCodeEditor(CodeEditorTooling):
     def __init__(self, filename="persistent_source.py") -> None:
         super().__init__(filename, interpreter="python3")
         self.venv = VirtualenvManager()
-    
+
     def add_dependency(self, dependency):
         self.venv.add_dependency(dependency)
 

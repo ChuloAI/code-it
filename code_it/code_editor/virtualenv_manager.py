@@ -8,6 +8,8 @@ from virtualenv import cli_run
 logger = logging.getLogger(__name__)
 
 RANDOM_NAME_LENGTH = 16
+
+
 class VirtualenvManager:
     def __init__(self, name: str = "", base_path="/tmp") -> None:
         if not name:
@@ -31,5 +33,8 @@ class VirtualenvManager:
 
     def install_dependencies(self):
         logger.info("Installing dependencies")
-        process = subprocess.run([self.python_interpreter, "-m", "pip", "install"] + self.dependencies, capture_output=True)
+        process = subprocess.run(
+            [self.python_interpreter, "-m", "pip", "install"] + self.dependencies,
+            capture_output=True,
+        )
         return process

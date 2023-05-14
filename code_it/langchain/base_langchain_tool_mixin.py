@@ -1,6 +1,7 @@
 from code_it.code_editor.base import CodeEditorTooling
 from langchain.agents import Tool
 
+
 class LangchainToolMixin(CodeEditorTooling):
     def __init__(self) -> None:
         super().__init__()
@@ -52,7 +53,7 @@ print("Line 3 now prints this")
 
 """,
         )
-    
+
     def build_delete_code_lines_tool(self):
         return Tool(
             name="CodeEditorDeleteLine",

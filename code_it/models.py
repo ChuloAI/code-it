@@ -4,6 +4,7 @@ import requests
 from copy import deepcopy
 from dataclasses import dataclass
 
+
 def default_extractor(json_response: Dict[str, Any], stop_parameter_name) -> str:
     return json_response["response"]
 
@@ -37,12 +38,17 @@ class HTTPBaseLLM:
             },
         )
         response.raise_for_status()
-        return self.response_extractor(response.json(), params[self.stop_parameter_name])
+        return self.response_extractor(
+            response.json(), params[self.stop_parameter_name]
+        )
 
     @property
     def _identifying_params(self) -> Mapping[str, Any]:
         """Get the identifying parameters."""
         return {}
+
+    def set_parameter(self, parameter_name, parameter_value):
+        self.parameters[parameter_name] = parameter_value
 
 
 def ui_default_parameters():
@@ -94,9 +100,17 @@ def build_text_generation_web_ui_client_llm(
     )
 
 
+_llama_base_default_parameters = {
+    "temperature": 0,
+    "max_new_tokens": 256,
+    "stop": ["Observation:"],
+}
+
 
 def build_llama_base_llm(prompt_url="http://127.0.0.1:8000/prompt", parameters=None):
     if parameters is None:
-        parameters = {"temperature": 0, "max_new_tokens": 256, "stop": ["Observation:"]}
+        parameters = deepcopy(_llama_base_default_parameters)
 
-    return HTTPBaseLLM(prompt_url=prompt_url, parameters=parameters)
+    return HTTPBaseLLM(
+        prompt_url=prompt_url, parameters=parameters, stop_parameter_name="stop"
+    )
