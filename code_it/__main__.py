@@ -14,12 +14,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 code_editor = PythonCodeEditor()
+refactored_code_editor = PythonCodeEditor(filename="refactored_persistent_source.py")
+
 
 model_builder = build_llama_base_llm
 
 config = TaskExecutionConfig()
 
-task_executor = TaskExecutor(code_editor, model_builder, config)
+task_executor = TaskExecutor(code_editor, refactored_code_editor, model_builder, config)
 
 with open("task.txt", "r") as fp:
     task = fp.read()

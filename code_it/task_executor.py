@@ -16,19 +16,22 @@ DEPENDENCY_BLACKLIST = set(["random", "json"])
 
 
 def _trim_md(code_editor):
-    code_editor.source_code[0] = code_editor.source_code[0].replace("```python", "")
-    code_editor.source_code[-1] = code_editor.source_code[-1].replace("```", "")
-    code_editor.overwrite_code(code_editor.display_code())
+    if code_editor.source_code:
+        code_editor.source_code[0] = code_editor.source_code[0].replace("```python", "")
+        code_editor.source_code[-1] = code_editor.source_code[-1].replace("```", "")
+        code_editor.overwrite_code(code_editor.display_code())
 
 
 @dataclass
 class TaskExecutionConfig:
     execute_code = True
+    install_dependencies = True
     dependency_samples = 1
+    max_refactor_attempts = 5
     dependency_install_attempts = 5
     planner_temperature = 0.2
-    coder_temperature = 0.2
-    refactor_temperature = 0.2
+    coder_temperature = 0.05
+    refactor_temperature = 0.5
     dependency_tracker_temperature = 0.2
 
 
@@ -36,10 +39,12 @@ class TaskExecutor:
     def __init__(
         self,
         code_editor: PythonCodeEditor,
+        refactored_code_editor: PythonCodeEditor,
         model_builder: Callable[[], HTTPBaseLLM],
         config: TaskExecutionConfig,
     ) -> None:
         self.code_editor = code_editor
+        self.refactored_code_editor = refactored_code_editor
         self.config = config
 
         # Planner
@@ -55,6 +60,8 @@ class TaskExecutor:
         # Refactor
         refactoring_llm = model_builder()
         refactoring_llm.set_parameter("temperature", config.refactor_temperature)
+        refactoring_llm.set_parameter("max_new_tokens", 1024)
+
         self.refactor = Refactor(refactoring_llm)
 
         # Dependency tracker
@@ -66,44 +73,48 @@ class TaskExecutor:
 
     def execute(self, task: str):
 
+        # Generating a coding plan
         plan = self.planner.execute_task(task=task)
         logger.info(type(plan))
         logger.info("Parsed plan: %s", plan)
 
+        # Dependency installation
         installed_dependencies = False
         attempt = 0
 
-        while not installed_dependencies and attempt < self.config.dependency_install_attempts:
-            dependencies = []
-            for _ in range(self.config.dependency_samples):
-                dep = self.dependency_tracker.execute_task(plan="\n".join(plan))
-                for d in dep:
-                    d = d.replace("-", "")
-                    if d in DEPENDENCY_BLACKLIST:
-                        continue
-                    dependencies.append(d)
+        if self.config.execute_code and self.config.install_dependencies:
+            while not installed_dependencies and attempt < self.config.dependency_install_attempts:
+                dependencies = []
+                for _ in range(self.config.dependency_samples):
+                    dep = self.dependency_tracker.execute_task(plan="\n".join(plan))
+                    for d in dep:
+                        d = d.replace("-", "")
+                        if d in DEPENDENCY_BLACKLIST:
+                            continue
+                        dependencies.append(d)
 
-            dependencies = list(set(dependencies))
-            logger.info("Dependencies: %s", dependencies)
+                dependencies = list(set(dependencies))
+                logger.info("Dependencies: %s", dependencies)
 
-            logger.info("Dependency lines: %s", dependencies)
-            for dependency in dependencies:
-                self.code_editor.add_dependency(dependency)
+                logger.info("Dependency lines: %s", dependencies)
+                for dependency in dependencies:
+                    self.refactored_code_editor.add_dependency(dependency)
 
-            self.code_editor.create_env()
-            process = self.code_editor.install_dependencies()
-            if process.returncode != 0:
-                logger.error("Dependency install failed for: %s", "\n".join(dependencies))
-                attempt += 1
+                self.refactored_code_editor.create_env()
+                process = self.refactored_code_editor.install_dependencies()
+                if process.returncode != 0:
+                    logger.error("Dependency install failed for: %s", "\n".join(dependencies))
+                    attempt += 1
 
-            else:
-                installed_dependencies = True
+                else:
+                    installed_dependencies = True
 
-        if attempt >= self.config.dependency_install_attempts:
-            raise ValueError("Failed to install dependencies")
+            if attempt >= self.config.dependency_install_attempts:
+                raise ValueError("Failed to install dependencies")
 
-        logger.info("Installed dependencies successfully!")
+            logger.info("Installed dependencies successfully!")
 
+        # Coding
         for step in plan:
             logger.info("Coding step: %s", step)
             new_code = self.coder.execute_task(
@@ -116,21 +127,26 @@ class TaskExecutor:
         logger.info("Finished generating code!")
 
         logger.info("Current code: %s", self.code_editor.display_code())
-        refactored = self.refactor.execute_task(
-            source_code=self.code_editor.display_code(), objective=task, plan="\n".join(plan)
-        )
-
-        logger.info("After refactoring")
-        self.code_editor.overwrite_code(refactored)
-        _trim_md(self.code_editor)
-
-        logger.info(self.code_editor.display_code())
 
 
-        if not self.config.execute_code:
-            return self.code_editor.display_code()
+        # Refactoring
+        for i in range(self.config.max_refactor_attempts):
+            logger.info("After refactoring, attempt: %s", i)
+            refactored = self.refactor.execute_task(
+                source_code=self.code_editor.display_code(), objective=task, plan="\n".join(plan)
+            )
+            self.refactored_code_editor.overwrite_code(refactored)
+            _trim_md(self.refactored_code_editor)
 
-        result = self.code_editor.run_code()
+            logger.info(self.refactored_code_editor.display_code())
+
+            if not self.config.execute_code:
+                return self.refactored_code_editor.display_code()
+
+            result = self.refactored_code_editor.run_code()
+
+            if "Succeeded" in result:
+                break
 
         if "Succeeded" in result:
             logger.info("Source code is functional!")
