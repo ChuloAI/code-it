@@ -26,12 +26,12 @@ def _trim_md(code_editor):
 class TaskExecutionConfig:
     execute_code = True
     install_dependencies = True
-    dependency_samples = 1
+    dependency_samples = 3
     max_refactor_attempts = 5
     dependency_install_attempts = 5
     planner_temperature = 0.2
-    coder_temperature = 0.05
-    refactor_temperature = 0.5
+    coder_temperature = 0
+    refactor_temperature = 0.3
     dependency_tracker_temperature = 0.2
 
 
