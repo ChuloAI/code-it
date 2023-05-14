@@ -12,6 +12,7 @@ from typing import Callable
 logger = logging.getLogger(__name__)
 
 ANSWER_PATTERN = r"[a-zA-Z]+"
+DEPENDENCY_BLACKLIST = set(["random", "json"])
 
 
 def _trim_md(code_editor):
@@ -24,6 +25,7 @@ def _trim_md(code_editor):
 class TaskExecutionConfig:
     execute_code = True
     dependency_samples = 1
+    dependency_install_attempts = 5
     planner_temperature = 0.2
     coder_temperature = 0.2
     refactor_temperature = 0.2
@@ -68,19 +70,39 @@ class TaskExecutor:
         logger.info(type(plan))
         logger.info("Parsed plan: %s", plan)
 
-        dependencies = []
-        for _ in range(self.config.dependency_samples):
-            dependencies.extend(self.dependency_tracker.execute_task(plan="\n".join(plan)))
+        installed_dependencies = False
+        attempt = 0
 
-        dependencies = list(set(dependencies))
-        logger.info("Dependencies: %s", dependencies)
+        while not installed_dependencies and attempt < self.config.dependency_install_attempts:
+            dependencies = []
+            for _ in range(self.config.dependency_samples):
+                dep = self.dependency_tracker.execute_task(plan="\n".join(plan))
+                for d in dep:
+                    d = d.replace("-", "")
+                    if d in DEPENDENCY_BLACKLIST:
+                        continue
+                    dependencies.append(d)
 
-        logger.info("Dependency lines: %s", dependencies)
-        for dependency in dependencies:
-            self.code_editor.add_dependency(dependency)
+            dependencies = list(set(dependencies))
+            logger.info("Dependencies: %s", dependencies)
 
-        self.code_editor.create_env()
-        self.code_editor.install_dependencies()
+            logger.info("Dependency lines: %s", dependencies)
+            for dependency in dependencies:
+                self.code_editor.add_dependency(dependency)
+
+            self.code_editor.create_env()
+            process = self.code_editor.install_dependencies()
+            if process.returncode != 0:
+                logger.error("Dependency install failed for: %s", "\n".join(dependencies))
+                attempt += 1
+
+            else:
+                installed_dependencies = True
+
+        if attempt >= self.config.dependency_install_attempts:
+            raise ValueError("Failed to install dependencies")
+
+        logger.info("Installed dependencies successfully!")
 
         for step in plan:
             logger.info("Coding step: %s", step)
@@ -88,18 +110,22 @@ class TaskExecutor:
                 subtask=step, source_code=self.code_editor.display_code()
             )
             self.code_editor.add_code(new_code)
+            logger.info("Trimming MD syntax")
+            _trim_md(self.code_editor)
+
         logger.info("Finished generating code!")
 
         logger.info("Current code: %s", self.code_editor.display_code())
         refactored = self.refactor.execute_task(
-            source_code=self.code_editor.display_code(), task=task
+            source_code=self.code_editor.display_code(), objective=task, plan="\n".join(plan)
         )
+
         logger.info("After refactoring")
         self.code_editor.overwrite_code(refactored)
+        _trim_md(self.code_editor)
+
         logger.info(self.code_editor.display_code())
 
-        logger.info("Trimming MD syntax")
-        _trim_md(self.code_editor)
 
         if not self.config.execute_code:
             return self.code_editor.display_code()

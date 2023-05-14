@@ -1,13 +1,13 @@
 import logging
 
 from code_it.code_editor.python_editor import PythonCodeEditor
-from code_it.models import build_llama_base_llm
+from code_it.models import HTTPBaseLLM
 from code_it.task_executor import TaskExecutor, TaskExecutionConfig
 from langchain.agents import Tool
 
 
 class CodeItTool:
-    def __init__(self, model_builder, config: TaskExecutionConfig) -> None:
+    def __init__(self, model_builder: HTTPBaseLLM, config: TaskExecutionConfig) -> None:
         self.model_builder = model_builder
 
     logging.basicConfig(
