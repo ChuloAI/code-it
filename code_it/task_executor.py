@@ -9,7 +9,7 @@ from code_it.agents.dependency_tracker import DependencyTracker
 from code_it.models import HTTPBaseLLM
 from typing import Callable
 from pylint import epylint as lint
-
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,7 @@ class TaskExecutionConfig:
     execute_code = True
     install_dependencies = True
     apply_linter = True
+    check_package_is_in_pypi = True
     dependency_samples = 3
     max_refactor_attempts = 5
     dependency_install_attempts = 5
@@ -93,8 +94,15 @@ class TaskExecutor:
                         if " " in d:
                             d = d.split(" ")[0]
 
+                        if self.config.check_package_is_in_pypi:
+                            url = f'https://pypi.org/project/{d}'
+                            res = requests.get(url)
+                            if res.status_code != 200:
+                                pass
+
                         if len(d) < 2 or d in DEPENDENCY_BLACKLIST:
                             continue
+
                         dependencies.append(d)
 
                 if not dependencies:
