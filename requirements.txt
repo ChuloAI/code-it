@@ -1,3 +1,4 @@
 requests
 langchain
 virtualenv
+pylint

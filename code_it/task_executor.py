@@ -4,10 +4,13 @@ import logging
 from code_it.code_editor.python_editor import PythonCodeEditor
 from code_it.agents.planner import Planner
 from code_it.agents.coder import Coder
+from code_it.agents.linter import Linter
 from code_it.agents.refactor import Refactor
 from code_it.agents.dependency_tracker import DependencyTracker
 from code_it.models import HTTPBaseLLM
 from typing import Callable
+from pylint import epylint as lint
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +32,7 @@ class TaskExecutionConfig:
     dependency_samples = 3
     max_refactor_attempts = 5
     dependency_install_attempts = 5
-    planner_temperature = 0.2
+    planner_temperature = 0
     coder_temperature = 0
     refactor_temperature = 0.3
     dependency_tracker_temperature = 0.2
@@ -63,6 +66,12 @@ class TaskExecutor:
         refactoring_llm.set_parameter("max_new_tokens", 1024)
 
         self.refactor = Refactor(refactoring_llm)
+
+        # Linter
+        linter_llm = model_builder()
+        linter_llm.set_parameter("temperature", config.refactor_temperature)
+        linter_llm.set_parameter("max_new_tokens", 1024)
+        self.linter = Linter(linter_llm)
 
         # Dependency tracker
         dependency_tracker_llm = model_builder()
@@ -123,6 +132,22 @@ class TaskExecutor:
             self.code_editor.add_code(new_code)
             logger.info("Trimming MD syntax")
             _trim_md(self.code_editor)
+
+            logger.info("Applying linter...")
+            (pylint_stdout, pylint_stderr) = lint.py_run(self.code_editor.filename, return_std=True)
+            pylint_stdout = pylint_stdout.getvalue()
+            pylint_stderr  = pylint_stderr.getvalue()
+            logger.info(pylint_stdout)
+            logger.error(pylint_stderr)
+
+            new_code = self.linter.execute_task(
+                source_code=self.code_editor.display_code(),
+                stdout=pylint_stdout,
+                stderr=pylint_stderr
+            )
+
+            self.code_editor.overwrite_code(new_code)
+            
 
         logger.info("Finished generating code!")
 

@@ -37,9 +37,9 @@ pymongo
 
 END OF PLANNING FLOW
 
-Keep it simple, stupid
 
 Finally, remember to add 'End of planning flow' at the end of your planning.
+Keep it simple, stupid. Now let's try a real instance:
 
 Plan: '{plan}'.
 Requirements:
