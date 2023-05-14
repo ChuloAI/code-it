@@ -1,0 +1,5 @@
+Question: The endpoint https://api.chucknorris.io/jokes/random returns a joke about Chuck Norries
+
+1. Write a python Program that fetches a joke from this endpoint.
+2. Extract the joke from the response. Access the 'value' in the JSON to extract it.
+3. Prints the joke to the screen.

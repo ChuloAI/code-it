@@ -89,10 +89,16 @@ class TaskExecutor:
                 for _ in range(self.config.dependency_samples):
                     dep = self.dependency_tracker.execute_task(plan="\n".join(plan))
                     for d in dep:
-                        d = d.replace("-", "")
-                        if d in DEPENDENCY_BLACKLIST:
+                        d = d.replace("-", "").strip()
+                        if " " in d:
+                            d = d.split(" ")[0]
+
+                        if len(d) < 2 or d in DEPENDENCY_BLACKLIST:
                             continue
                         dependencies.append(d)
+
+                if not dependencies:
+                    break
 
                 dependencies = list(set(dependencies))
                 logger.info("Dependencies: %s", dependencies)
