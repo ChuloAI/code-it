@@ -9,6 +9,7 @@ from langchain.agents import Tool
 class CodeItTool:
     def __init__(self, model_builder: HTTPBaseLLM, config: TaskExecutionConfig) -> None:
         self.model_builder = model_builder
+        self.config = config
 
     logging.basicConfig(
         level=logging.INFO,
@@ -18,7 +19,7 @@ class CodeItTool:
 
     def execute_task(self, task):
         code_editor = PythonCodeEditor()
-        task_executor = TaskExecutor(code_editor, self.model_builder)
+        task_executor = TaskExecutor(code_editor, self.model_builder, self.config)
         return task_executor.execute(task)
 
     def build_execute_task(self):
