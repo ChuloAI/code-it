@@ -19,8 +19,8 @@ model_builder = build_llama_base_llm
 
 config = TaskExecutionConfig()
 
-task_executor = TaskExecutor(code_editor, model_builder)
+task_executor = TaskExecutor(code_editor, model_builder, config)
 
-while True:
-    task = input("Enter the next task to execute: ")
+with open("task.txt", "r") as fp:
+    task = fp.read()
     task_executor.execute(task)

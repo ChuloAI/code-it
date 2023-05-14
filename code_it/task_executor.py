@@ -63,8 +63,6 @@ class TaskExecutor:
         self.dependency_tracker = DependencyTracker(dependency_tracker_llm)
 
     def execute(self, task: str):
-        self.code_editor.create_env()
-        self.code_editor.install_dependencies()
 
         plan = self.planner.execute_task(task=task)
         logger.info(type(plan))
@@ -72,7 +70,7 @@ class TaskExecutor:
 
         dependencies = []
         for _ in range(self.config.dependency_samples):
-            dependencies.extend(self.dependency_tracker.execute_task(task=plan))
+            dependencies.extend(self.dependency_tracker.execute_task(plan="\n".join(plan)))
 
         dependencies = list(set(dependencies))
         logger.info("Dependencies: %s", dependencies)
@@ -80,6 +78,9 @@ class TaskExecutor:
         logger.info("Dependency lines: %s", dependencies)
         for dependency in dependencies:
             self.code_editor.add_dependency(dependency)
+
+        self.code_editor.create_env()
+        self.code_editor.install_dependencies()
 
         for step in plan:
             logger.info("Coding step: %s", step)
