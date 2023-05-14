@@ -5,7 +5,6 @@ from code_it.code_editor.python_editor import PythonCodeEditor
 from code_it.agents.planner import Planner
 from code_it.agents.coder import Coder
 from code_it.agents.linter import Linter
-from code_it.agents.refactor import Refactor
 from code_it.agents.dependency_tracker import DependencyTracker
 from code_it.models import HTTPBaseLLM
 from typing import Callable
@@ -29,6 +28,7 @@ def _trim_md(code_editor):
 class TaskExecutionConfig:
     execute_code = True
     install_dependencies = True
+    apply_linter = True
     dependency_samples = 3
     max_refactor_attempts = 5
     dependency_install_attempts = 5
@@ -42,12 +42,10 @@ class TaskExecutor:
     def __init__(
         self,
         code_editor: PythonCodeEditor,
-        refactored_code_editor: PythonCodeEditor,
         model_builder: Callable[[], HTTPBaseLLM],
         config: TaskExecutionConfig,
     ) -> None:
         self.code_editor = code_editor
-        self.refactored_code_editor = refactored_code_editor
         self.config = config
 
         # Planner
@@ -58,14 +56,9 @@ class TaskExecutor:
         # Coder
         coder_llm = model_builder()
         coder_llm.set_parameter("temperature", config.coder_temperature)
+        coder_llm.set_parameter("max_new_tokens", 1024)
+
         self.coder = Coder(coder_llm)
-
-        # Refactor
-        refactoring_llm = model_builder()
-        refactoring_llm.set_parameter("temperature", config.refactor_temperature)
-        refactoring_llm.set_parameter("max_new_tokens", 1024)
-
-        self.refactor = Refactor(refactoring_llm)
 
         # Linter
         linter_llm = model_builder()
@@ -81,7 +74,6 @@ class TaskExecutor:
         self.dependency_tracker = DependencyTracker(dependency_tracker_llm)
 
     def execute(self, task: str):
-
         # Generating a coding plan
         plan = self.planner.execute_task(task=task)
         logger.info(type(plan))
@@ -107,10 +99,10 @@ class TaskExecutor:
 
                 logger.info("Dependency lines: %s", dependencies)
                 for dependency in dependencies:
-                    self.refactored_code_editor.add_dependency(dependency)
+                    self.code_editor.add_dependency(dependency)
 
-                self.refactored_code_editor.create_env()
-                process = self.refactored_code_editor.install_dependencies()
+                self.code_editor.create_env()
+                process = self.code_editor.install_dependencies()
                 if process.returncode != 0:
                     logger.error("Dependency install failed for: %s", "\n".join(dependencies))
                     attempt += 1
@@ -124,54 +116,39 @@ class TaskExecutor:
             logger.info("Installed dependencies successfully!")
 
         # Coding
-        for step in plan:
-            logger.info("Coding step: %s", step)
-            new_code = self.coder.execute_task(
-                subtask=step, source_code=self.code_editor.display_code()
-            )
-            self.code_editor.add_code(new_code)
-            logger.info("Trimming MD syntax")
-            _trim_md(self.code_editor)
-
-            logger.info("Applying linter...")
-            (pylint_stdout, pylint_stderr) = lint.py_run(self.code_editor.filename, return_std=True)
-            pylint_stdout = pylint_stdout.getvalue()
-            pylint_stderr  = pylint_stderr.getvalue()
-            logger.info(pylint_stdout)
-            logger.error(pylint_stderr)
-
-            new_code = self.linter.execute_task(
-                source_code=self.code_editor.display_code(),
-                stdout=pylint_stdout,
-                stderr=pylint_stderr
-            )
-
-            self.code_editor.overwrite_code(new_code)
-            
-
-        logger.info("Finished generating code!")
-
-        logger.info("Current code: %s", self.code_editor.display_code())
-
-
-        # Refactoring
         for i in range(self.config.max_refactor_attempts):
-            logger.info("After refactoring, attempt: %s", i)
-            refactored = self.refactor.execute_task(
+            logger.info("Coding, attempt: %s", i)
+            refactored = self.coder.execute_task(
                 source_code=self.code_editor.display_code(), objective=task, plan="\n".join(plan)
             )
-            self.refactored_code_editor.overwrite_code(refactored)
-            _trim_md(self.refactored_code_editor)
+            self.code_editor.overwrite_code(refactored)
+            _trim_md(self.code_editor)
 
-            logger.info(self.refactored_code_editor.display_code())
+            logger.info(self.code_editor.display_code())
+
+            if self.config.apply_linter:
+                logger.info("Applying linter...")
+                (pylint_stdout, _) = lint.py_run(self.code_editor.filename, return_std=True)
+                pylint_stdout = pylint_stdout.getvalue()
+                logger.info(pylint_stdout)
+
+                new_code = self.linter.execute_task(
+                    source_code=self.code_editor.display_code(),
+                    stdout=pylint_stdout,
+                )
+                logger.warn("Linted code: %s", new_code)
+                if new_code:
+                    self.code_editor.overwrite_code(new_code)
 
             if not self.config.execute_code:
-                return self.refactored_code_editor.display_code()
+                return self.code_editor.display_code()
 
-            result = self.refactored_code_editor.run_code()
+            result = self.code_editor.run_code()
 
             if "Succeeded" in result:
                 break
+
+        logger.info("Finished generating code!")
 
         if "Succeeded" in result:
             logger.info("Source code is functional!")

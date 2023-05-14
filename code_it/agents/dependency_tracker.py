@@ -47,8 +47,6 @@ Requirements:
 
     def parse_output(self, output):
         output = output.lower()
-        print("output ", output)
         if self.stop_string in output:
             output = output.split(self.stop_string)[0]
-        print("output ", output)
         return [step for step in output.split("\n") if len(step) > 0]
