@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 ANSWER_PATTERN = r"[a-zA-Z]+"
 
+PYLINT_SCORE_SUBSTRING = "Your code has been rated at "
 NO_SAMPLING = "NO_SAMPLING"
 PYLINT = "PYLINT"
 
@@ -39,7 +40,7 @@ class TaskExecutionConfig:
     apply_linter = True
     check_package_is_in_pypi = True
     log_to_stdout = True
-    coding_samples = 10
+    coding_samples = 3
     code_sampling_strategy = "PYLINT"
     sampling_temperature_multipler = 0.1
     dependency_samples = 3
@@ -47,7 +48,7 @@ class TaskExecutionConfig:
     dependency_install_attempts = 5
     planner_temperature = 0
     coder_temperature = 0
-    refactor_temperature = 0.3
+    linter_temperature = 0.3
     dependency_tracker_temperature = 0.2
 
 
@@ -75,7 +76,7 @@ class TaskExecutor:
 
         # Linter
         linter_llm = model_builder()
-        linter_llm.set_parameter("temperature", config.refactor_temperature)
+        linter_llm.set_parameter("temperature", config.linter_temperature)
         linter_llm.set_parameter("max_new_tokens", 1024)
         self.linter = Linter(linter_llm)
 
@@ -177,13 +178,17 @@ class TaskExecutor:
 
         elif self.config.code_sampling_strategy == PYLINT:
             coding_samples = []
-            for i in range(self.config.code_sampling_strategy):
+            for i in range(self.config.coding_samples):
                 self.coder.llm.set_parameter("temperature", i * self.config.sampling_temperature_multipler)
-                logger.info("Coding sample: %s", i)
+                self.planner.llm.set_parameter("temperature", i * self.config.sampling_temperature_multipler)
+                plan = self.planner.execute_task(task=task)
+                logger.info(type(plan))
+                logger.info("Parsed plan: %s", plan)
+
+                logger.info("Coding sample: %s (temperature: %s)", i, self.coder.llm.parameters["temperature"])
                 new_code = self.coder.execute_task(
                     source_code=self.code_editor.display_code(), objective=task, plan="\n".join(plan)
                 )
-                coding_samples.append({"code":  new_code})
                 self.code_editor.overwrite_code(new_code)
                 _trim_md(self.code_editor)
 
@@ -192,10 +197,19 @@ class TaskExecutor:
 
                 (pylint_stdout, _) = lint.py_run(self.code_editor.filename, return_std=True)
                 pylint_stdout = pylint_stdout.getvalue()
-                split_1 = pylint_stdout.split("Your code has been rated at ")[0]
-                linting_score_str = split_1.split("/")[0]
-                score = float(linting_score_str)
-                coding_samples[i]["score"] = score
+                pylint_lines = pylint_stdout.splitlines()
+                linting_score_str = None
+                for line in pylint_lines:
+                    if PYLINT_SCORE_SUBSTRING in line:
+                        split_1 = line.split(PYLINT_SCORE_SUBSTRING)[1]
+                        linting_score_str = split_1.split("/")[0]
+                if not linting_score_str:
+                    logger.warn(f"Failed to parse pylint score from stdout: {pylint_stdout}")
+                    score = -1  # Code probably does not compile 
+                else:
+                    score = float(linting_score_str)
+                
+                coding_samples.append({"code":  new_code, "score": score})
                 logger.info("Sample score: %s", score)
 
             coding_samples.sort(key=lambda x: x["score"], reverse=True)
