@@ -1,4 +1,7 @@
-"""This modules experiments building logic from scratch, without langchain."""
+"""This modules experiments building logic from scratch, without langchain.
+
+It needs some refactoring :)
+"""
 from dataclasses import dataclass
 import logging
 from code_it.code_editor.python_editor import PythonCodeEditor
@@ -14,8 +17,12 @@ import requests
 logger = logging.getLogger(__name__)
 
 ANSWER_PATTERN = r"[a-zA-Z]+"
-DEPENDENCY_BLACKLIST = set(["random", "json"])
 
+NO_SAMPLING = "NO_SAMPLING"
+PYLINT = "PYLINT"
+
+DEPENDENCY_BLACKLIST = set(["random", "json"])
+SUPPORTED_SAMPLING_STRATEGIES = set([PYLINT, NO_SAMPLING])
 
 def _trim_md(code_editor):
     if code_editor.source_code:
@@ -23,6 +30,7 @@ def _trim_md(code_editor):
         code_editor.source_code[-1] = code_editor.source_code[-1].replace("```", "")
         code_editor.overwrite_code(code_editor.display_code())
 
+# TODO: add validation to the config
 
 @dataclass
 class TaskExecutionConfig:
@@ -30,8 +38,12 @@ class TaskExecutionConfig:
     install_dependencies = True
     apply_linter = True
     check_package_is_in_pypi = True
+    log_to_stdout = True
+    coding_samples = 10
+    code_sampling_strategy = "PYLINT"
+    sampling_temperature_multipler = 0.1
     dependency_samples = 3
-    max_refactor_attempts = 5
+    max_coding_attempts = 5
     dependency_install_attempts = 5
     planner_temperature = 0
     coder_temperature = 0
@@ -130,37 +142,74 @@ class TaskExecutor:
             logger.info("Installed dependencies successfully!")
 
         # Coding
-        for i in range(self.config.max_refactor_attempts):
-            logger.info("Coding, attempt: %s", i)
-            refactored = self.coder.execute_task(
-                source_code=self.code_editor.display_code(), objective=task, plan="\n".join(plan)
-            )
-            self.code_editor.overwrite_code(refactored)
-            _trim_md(self.code_editor)
+        if self.config.code_sampling_strategy == NO_SAMPLING:
+            for i in range(self.config.max_coding_attempts):
+                logger.info("Coding, attempt: %s", i)
+                new_code = self.coder.execute_task(
+                    source_code=self.code_editor.display_code(), objective=task, plan="\n".join(plan)
+                )
+                self.code_editor.overwrite_code(new_code)
+                _trim_md(self.code_editor)
 
-            logger.info(self.code_editor.display_code())
+                logger.info(self.code_editor.display_code())
 
-            if self.config.apply_linter:
+                if self.config.apply_linter:
+                    logger.info("Applying linter...")
+                    (pylint_stdout, _) = lint.py_run(self.code_editor.filename, return_std=True)
+                    pylint_stdout = pylint_stdout.getvalue()
+                    logger.info(pylint_stdout)
+
+                    new_code = self.linter.execute_task(
+                        source_code=self.code_editor.display_code(),
+                        stdout=pylint_stdout,
+                    )
+                    logger.warn("Linted code: %s", new_code)
+                    if new_code:
+                        self.code_editor.overwrite_code(new_code)
+
+                if not self.config.execute_code:
+                    return self.code_editor.display_code()
+
+                result = self.code_editor.run_code()
+
+                if "Succeeded" in result:
+                    break
+
+        elif self.config.code_sampling_strategy == PYLINT:
+            coding_samples = []
+            for i in range(self.config.code_sampling_strategy):
+                self.coder.llm.set_parameter("temperature", i * self.config.sampling_temperature_multipler)
+                logger.info("Coding sample: %s", i)
+                new_code = self.coder.execute_task(
+                    source_code=self.code_editor.display_code(), objective=task, plan="\n".join(plan)
+                )
+                coding_samples.append({"code":  new_code})
+                self.code_editor.overwrite_code(new_code)
+                _trim_md(self.code_editor)
+
+                logger.info(self.code_editor.display_code())
                 logger.info("Applying linter...")
+
                 (pylint_stdout, _) = lint.py_run(self.code_editor.filename, return_std=True)
                 pylint_stdout = pylint_stdout.getvalue()
-                logger.info(pylint_stdout)
+                split_1 = pylint_stdout.split("Your code has been rated at ")[0]
+                linting_score_str = split_1.split("/")[0]
+                score = float(linting_score_str)
+                coding_samples[i]["score"] = score
+                logger.info("Sample score: %s", score)
 
-                new_code = self.linter.execute_task(
-                    source_code=self.code_editor.display_code(),
-                    stdout=pylint_stdout,
-                )
-                logger.warn("Linted code: %s", new_code)
-                if new_code:
-                    self.code_editor.overwrite_code(new_code)
-
+            coding_samples.sort(key=lambda x: x["score"], reverse=True)
+            highest_score = coding_samples[0]
+            logger.info("Score of highest sample: %s", highest_score["score"])
+            self.code_editor.overwrite_code(highest_score["code"])
             if not self.config.execute_code:
                 return self.code_editor.display_code()
 
             result = self.code_editor.run_code()
 
-            if "Succeeded" in result:
-                break
+        else:
+            raise ValueError("Invalid Sampling Strategy")
+
 
         logger.info("Finished generating code!")
 

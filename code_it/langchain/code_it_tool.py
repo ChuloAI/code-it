@@ -11,11 +11,12 @@ class CodeItTool:
         self.model_builder = model_builder
         self.config = config
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[logging.StreamHandler()],
-    )
+        if config.log_to_stdout:
+            logging.basicConfig(
+                level=logging.INFO,
+                format="%(asctime)s [%(levelname)s] %(message)s",
+                handlers=[logging.StreamHandler()],
+            )
 
     def execute_task(self, task):
         code_editor = PythonCodeEditor()
