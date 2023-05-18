@@ -143,7 +143,7 @@ The Mixin gives the option to use the pip install command from the `code_it` vir
 
 **Note that the Mixin does not work as well as the task execution tool.**
 
-The model quite often fails to use the new actions appropriately.
+The local models quite often fails to use the new actions appropriately, so even this example does not yet work as you would expect.
 
 Code from: https://github.com/paolorechia/learn-langchain/blob/main/langchain_app/agents/coder_plot_chart_mixin_test.py
 
