@@ -2,7 +2,7 @@
 
 Code-it is simultaneously:
 
-1. A standalone package to generate code and execute with LLMs
+1. A standalone package to generate code and execute with **local** LLMs.
 2. An importable tool into langchain
 
 
