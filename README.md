@@ -26,13 +26,15 @@ code_it @ git+https://github.com/paolorechia/code-it
 ```
 Note that I did not yet have tags or a PyPi package, as I'm not sure how useful this package will be in the future. 
 
-3. Locally with your Python shell / virtualenv:
-`pip install -r requirements.txt`
+3. Locally as a standalone program with your current Python shell / virtualenv:
 
+```bash
+git clone https://github.com/paolorechia/code-it
+cd code-it
+pip install -r requirements.txt
+```
 
-## Running it as a standalone package
-
-
+## Running it as a standalone program (using the package `__main__.py`)
 WARNING: the LLM will run arbitrary code, use it at your own risk.
 Execute the main:
 `python3 -m code_it`
@@ -40,4 +42,28 @@ Execute the main:
 This will save the code in `persistent_source.py`
 
 Change the task in the `task.txt` file to perform another task.
+
+## Using it as a standalone package in your program
+
+
+## Using it with Langchain
+
+
+### The PipInstall action
+
+### The ExecuteCodeTask action
+
+
+
+## Modifying the behavior
+When you're importing `code_it` package in your own code, you can change some settings on how it should behave. Specifically, these are the supported config options at the moment:
+```python
+
+```
+
+
+
+
+
+
 
