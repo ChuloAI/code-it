@@ -5,6 +5,7 @@ It needs some refactoring :)
 from dataclasses import dataclass
 import logging
 from code_it.code_editor.python_editor import PythonCodeEditor
+from code_it.agents.complexity_analyser import ComplexityAnalyser
 from code_it.agents.planner import Planner
 from code_it.agents.coder import Coder
 from code_it.agents.linter import Linter
@@ -50,7 +51,7 @@ class TaskExecutionConfig:
     coder_temperature = 0
     linter_temperature = 0.3
     dependency_tracker_temperature = 0.2
-
+    complexity_analyser_temperature = 0.1
 
 class TaskExecutor:
     def __init__(
@@ -61,35 +62,22 @@ class TaskExecutor:
     ) -> None:
         self.code_editor = code_editor
         self.config = config
-
-        # Planner
-        planner_llm = model_builder()
-        planner_llm.set_parameter("temperature", config.planner_temperature)
-        self.planner = Planner(planner_llm)
-
-        # Coder
-        coder_llm = model_builder()
-        coder_llm.set_parameter("temperature", config.coder_temperature)
-        coder_llm.set_parameter("max_new_tokens", 1024)
-
-        self.coder = Coder(coder_llm)
-
-        # Linter
-        linter_llm = model_builder()
-        linter_llm.set_parameter("temperature", config.linter_temperature)
-        linter_llm.set_parameter("max_new_tokens", 1024)
-        self.linter = Linter(linter_llm)
-
-        # Dependency tracker
-        dependency_tracker_llm = model_builder()
-        dependency_tracker_llm.set_parameter(
-            "temperature", config.dependency_tracker_temperature
+        # ComplexityAnalyser
+        self.complexity_analyser = ComplexityAnalyser(
+            model_builder()
         )
-        self.dependency_tracker = DependencyTracker(dependency_tracker_llm)
+        self.planner = Planner(model_builder())
+        self.coder = Coder(model_builder())
+        self.linter = Linter(model_builder())
+        self.dependency_tracker = DependencyTracker(model_builder())
 
     def execute(self, task: str):
         # Generating a coding plan
-        plan = self.planner.execute_task(task=task)
+
+        output = self.complexity_analyser.execute_task(task=task)
+        print("Complexity output:", output)
+
+        plan = self.planner.execute_task(task=task, steps=output["required_steps"], **output)
         logger.info(type(plan))
         logger.info("Parsed plan: %s", plan)
         for key, item in plan.items():

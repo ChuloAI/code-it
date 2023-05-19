@@ -1,18 +1,22 @@
 from code_it.agents.base import BaseAgent
-import guidance
 
 class Planner(BaseAgent):
     def __init__(self, llm) -> None:
         super().__init__(llm)
         self.stop_string = "End of planning flow."
-        self.guidance_output_variables = ["step"]
-        self.prompt_template = guidance("""
+        self.guidance_output_variables = ["steps"]
+        self.guidance_input_variables = ["complexity"]
+        self.macro_variables = ["steps"]
+
+        self.prompt_template = """
 You're an AI master at planning and breaking down a coding task into smaller, tractable chunks.
 You will be given a task, please helps us thinking it through, step-by-step.
 
 First, let's see an example of what we expect:
 
 Task: Fetch the contents of the endpoint 'https://example.com/api' and write to a file
+Task Complexity: 2/10
+Required Steps: 4
 Steps:
 1. I should import the requests library
 2. I should use requests library to fetch the results from the endpoint 'https://example.com/api' and save to a variable called response
@@ -25,6 +29,8 @@ END OF PLANNING FLOW
 Example 2:
 
 Task: Write a random number to a file
+Task Complexity: 1/10
+Required Steps: 3
 Steps:
 Step 1. I shold import the random library.
 Step 2. I should define the output file name.
@@ -41,9 +47,11 @@ Keep it simple, stupid
 Finally, remember to add 'End of planning flow' at the end of your planning.
 
 Task: '{{task}}'.
+Task Complexity: {{complexity}}
+Required Steps: #####steps
 Steps:
-{{#geneach 'step' num_iterations=6}}
+{{#geneach 'steps' num_iterations=#####steps}}
 Step {{gen 'this' stop='\\n'}}
 {{/geneach}}
 
-""")
+"""
