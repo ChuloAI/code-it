@@ -2,3 +2,4 @@ requests
 langchain
 virtualenv
 pylint
+guidance @ git+https://github.com/paolorechia/local-guidance

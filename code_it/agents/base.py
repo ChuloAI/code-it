@@ -1,5 +1,5 @@
 import abc
-
+from guidance import Program
 
 class BaseAgent:
     def __init__(self, llm) -> None:
@@ -10,7 +10,9 @@ class BaseAgent:
         raise NotImplementedError()
 
     def execute_task(self, **kwargs):
-        prompt = self.prompt_template.format(**kwargs)
-        raw_result = self.llm._call(prompt, stop=[self.stop_string])
-        parsed_result = self.parse_output(raw_result)
-        return parsed_result
+        guidance_program: Program = self.prompt_template
+        program_result = guidance_program(**kwargs, stream=False, async_mode=False, caching=False)
+        output = {}
+        for output_var in self.guidance_output_variables:
+            output[output_var] = program_result[output_var]
+        return output

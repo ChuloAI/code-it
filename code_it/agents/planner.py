@@ -1,11 +1,12 @@
 from code_it.agents.base import BaseAgent
-
+import guidance
 
 class Planner(BaseAgent):
     def __init__(self, llm) -> None:
         super().__init__(llm)
         self.stop_string = "End of planning flow."
-        self.prompt_template = """
+        self.guidance_output_variables = ["step"]
+        self.prompt_template = guidance("""
 You're an AI master at planning and breaking down a coding task into smaller, tractable chunks.
 You will be given a task, please helps us thinking it through, step-by-step.
 
@@ -25,9 +26,9 @@ Example 2:
 
 Task: Write a random number to a file
 Steps:
-1. I should import the random library.
-2. I should define the output file name.
-3. I open a file and write the random number into it.
+Step 1. I shold import the random library.
+Step 2. I should define the output file name.
+Step 3. I open a file and write the random number into it.
 
 END OF PLANNING FLOW
 
@@ -39,13 +40,10 @@ Keep it simple, stupid
 
 Finally, remember to add 'End of planning flow' at the end of your planning.
 
-Task: '{task}'.
+Task: '{{task}}'.
 Steps:
-"""
+{{#geneach 'step' num_iterations=6}}
+Step {{gen 'this' stop='\\n'}}
+{{/geneach}}
 
-    def parse_output(self, steps):
-        if "Steps:" in steps:
-            steps = steps.split("Steps:")[1]
-        if "End of planning flow" in steps:
-            steps = steps.split("End of planning flow")[0]
-        return [step for step in steps.split("\n") if len(step) > 10]
+""")

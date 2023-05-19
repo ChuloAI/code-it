@@ -92,7 +92,10 @@ class TaskExecutor:
         plan = self.planner.execute_task(task=task)
         logger.info(type(plan))
         logger.info("Parsed plan: %s", plan)
-
+        for key, item in plan.items():
+            logger.info("Key: %s | item: %s", key, item)
+        import sys
+        sys.exit(0)
         # Dependency installation
         installed_dependencies = False
         attempt = 0
