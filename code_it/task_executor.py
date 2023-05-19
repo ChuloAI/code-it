@@ -8,12 +8,12 @@ from code_it.code_editor.python_editor import PythonCodeEditor
 from code_it.agents.complexity_analyser import ComplexityAnalyser
 from code_it.agents.planner import Planner
 from code_it.agents.coder import Coder
-from code_it.agents.linter import Linter
 from code_it.agents.dependency_tracker import DependencyTracker
 from code_it.models import HTTPBaseLLM
 from typing import Callable
 from pylint import epylint as lint
 import requests
+from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ NO_SAMPLING = "NO_SAMPLING"
 PYLINT = "PYLINT"
 
 DEPENDENCY_BLACKLIST = set(["random", "json"])
-SUPPORTED_SAMPLING_STRATEGIES = set([PYLINT, NO_SAMPLING])
+SUPPORTED_SAMPLING_STRATEGIES = set([PYLINT])
 
 def _trim_md(code_editor):
     if code_editor.source_code:
@@ -46,7 +46,6 @@ class TaskExecutionConfig:
     sampling_temperature_multipler = 0.1
     dependency_samples = 3
     max_coding_attempts = 5
-    dependency_install_attempts = 5
     planner_temperature = 0
     coder_temperature = 0
     linter_temperature = 0.3
@@ -68,156 +67,74 @@ class TaskExecutor:
         )
         self.planner = Planner(model_builder())
         self.coder = Coder(model_builder())
-        self.linter = Linter(model_builder())
         self.dependency_tracker = DependencyTracker(model_builder())
+
+
+    def install_dependencies(self, plan: List[str]) -> List[str]:
+        dependencies = []
+        for _ in range(self.config.dependency_samples):
+            dependency_output = self.dependency_tracker.execute_task(plan="\n".join(plan))
+            logger.info("Dependency task output: %s", dependency_output)
+            deps = dependency_output["requirements"]
+            for d in deps:
+                d = d.replace("-", "").strip()
+                if " " in d:
+                    d = d.split(" ")[0]
+
+                if self.config.check_package_is_in_pypi:
+                    url = f'https://pypi.org/project/{d}'
+                    res = requests.get(url)
+                    if res.status_code != 200:
+                        pass
+
+                if len(d) < 2 or d in DEPENDENCY_BLACKLIST:
+                    continue
+
+                dependencies.append(d)
+
+        if not dependencies:
+            logger.info("No dependencies found!")
+            return []
+
+        dependencies = list(set(dependencies))
+        logger.info("Dependencies: %s", dependencies)
+
+        logger.info("Dependency lines: %s", dependencies)
+        for dependency in dependencies:
+            self.code_editor.add_dependency(dependency)
+
+        self.code_editor.create_env()
+        process = self.code_editor.install_dependencies()
+        if process.returncode != 0:
+            raise ValueError("Failed to install dependencies")
+
+        logger.info("Installed dependencies successfully!")
+        return dependencies
+
 
     def execute(self, task: str):
         # Generating a coding plan
 
-        output = self.complexity_analyser.execute_task(task=task)
-        print("Complexity output:", output)
+        complexity_output = self.complexity_analyser.execute_task(task=task)
+        print("Complexity output:", complexity_output)
 
-        plan = self.planner.execute_task(task=task, steps=output["required_steps"], **output)
+        planner_output = self.planner.execute_task(task=task, steps=complexity_output["required_steps"], **complexity_output)
+        plan = planner_output["steps"]
         logger.info(type(plan))
         logger.info("Parsed plan: %s", plan)
-        for key, item in plan.items():
-            logger.info("Key: %s | item: %s", key, item)
-        import sys
-        sys.exit(0)
-        # Dependency installation
-        installed_dependencies = False
-        attempt = 0
+
 
         if self.config.execute_code and self.config.install_dependencies:
-            while not installed_dependencies and attempt < self.config.dependency_install_attempts:
-                dependencies = []
-                for _ in range(self.config.dependency_samples):
-                    dep = self.dependency_tracker.execute_task(plan="\n".join(plan))
-                    for d in dep:
-                        d = d.replace("-", "").strip()
-                        if " " in d:
-                            d = d.split(" ")[0]
+            self.install_dependencies(plan)
 
-                        if self.config.check_package_is_in_pypi:
-                            url = f'https://pypi.org/project/{d}'
-                            res = requests.get(url)
-                            if res.status_code != 200:
-                                pass
-
-                        if len(d) < 2 or d in DEPENDENCY_BLACKLIST:
-                            continue
-
-                        dependencies.append(d)
-
-                if not dependencies:
-                    break
-
-                dependencies = list(set(dependencies))
-                logger.info("Dependencies: %s", dependencies)
-
-                logger.info("Dependency lines: %s", dependencies)
-                for dependency in dependencies:
-                    self.code_editor.add_dependency(dependency)
-
-                self.code_editor.create_env()
-                process = self.code_editor.install_dependencies()
-                if process.returncode != 0:
-                    logger.error("Dependency install failed for: %s", "\n".join(dependencies))
-                    attempt += 1
-
-                else:
-                    installed_dependencies = True
-
-            if attempt >= self.config.dependency_install_attempts:
-                raise ValueError("Failed to install dependencies")
-
-            logger.info("Installed dependencies successfully!")
-
-        # Coding
-        if self.config.code_sampling_strategy == NO_SAMPLING:
-            for i in range(self.config.max_coding_attempts):
-                logger.info("Coding, attempt: %s", i)
-                new_code = self.coder.execute_task(
-                    source_code=self.code_editor.display_code(), objective=task, plan="\n".join(plan)
-                )
-                self.code_editor.overwrite_code(new_code)
-                _trim_md(self.code_editor)
-
-                logger.info(self.code_editor.display_code())
-
-                if self.config.apply_linter:
-                    logger.info("Applying linter...")
-                    (pylint_stdout, _) = lint.py_run(self.code_editor.filename, return_std=True)
-                    pylint_stdout = pylint_stdout.getvalue()
-                    logger.info(pylint_stdout)
-
-                    new_code = self.linter.execute_task(
-                        source_code=self.code_editor.display_code(),
-                        stdout=pylint_stdout,
-                    )
-                    logger.warn("Linted code: %s", new_code)
-                    if new_code:
-                        self.code_editor.overwrite_code(new_code)
-
-                if not self.config.execute_code:
-                    return self.code_editor.display_code()
-
-                result = self.code_editor.run_code()
-
-                if "Succeeded" in result:
-                    break
-
-        elif self.config.code_sampling_strategy == PYLINT:
-            coding_samples = []
-            for i in range(self.config.coding_samples):
-                self.coder.llm.set_parameter("temperature", i * self.config.sampling_temperature_multipler)
-                self.planner.llm.set_parameter("temperature", i * self.config.sampling_temperature_multipler)
-                plan = self.planner.execute_task(task=task)
-                logger.info(type(plan))
-                logger.info("Parsed plan: %s", plan)
-
-                logger.info("Coding sample: %s (temperature: %s)", i, self.coder.llm.parameters["temperature"])
-                new_code = self.coder.execute_task(
-                    source_code=self.code_editor.display_code(), objective=task, plan="\n".join(plan)
-                )
-                self.code_editor.overwrite_code(new_code)
-                _trim_md(self.code_editor)
-
-                logger.info(self.code_editor.display_code())
-                logger.info("Applying linter...")
-
-                (pylint_stdout, _) = lint.py_run(self.code_editor.filename, return_std=True)
-                pylint_stdout = pylint_stdout.getvalue()
-                pylint_lines = pylint_stdout.splitlines()
-                linting_score_str = None
-                for line in pylint_lines:
-                    if PYLINT_SCORE_SUBSTRING in line:
-                        split_1 = line.split(PYLINT_SCORE_SUBSTRING)[1]
-                        linting_score_str = split_1.split("/")[0]
-                if not linting_score_str:
-                    logger.warn(f"Failed to parse pylint score from stdout: {pylint_stdout}")
-                    score = -1  # Code probably does not compile 
-                else:
-                    score = float(linting_score_str)
-                
-                coding_samples.append({"code":  new_code, "score": score})
-                logger.info("Sample score: %s", score)
-
-            coding_samples.sort(key=lambda x: x["score"], reverse=True)
-            highest_score = coding_samples[0]
-            logger.info("Score of highest sample: %s", highest_score["score"])
-            self.code_editor.overwrite_code(highest_score["code"])
-            if not self.config.execute_code:
-                return self.code_editor.display_code()
-
-            result = self.code_editor.run_code()
-
-        else:
-            raise ValueError("Invalid Sampling Strategy")
-
+        for step in plan:
+            coder_output = self.coder.execute_task(objective=task, plan="\n".join(plan), current_step=step, source_code=self.code_editor.display_code())
+            self.code_editor.add_code(coder_output["new_code"])
 
         logger.info("Finished generating code!")
+        print(self.code_editor.display_code())
 
+        result = self.code_editor.run_code()
         if "Succeeded" in result:
             logger.info("Source code is functional!")
             return "Task Success: " + result

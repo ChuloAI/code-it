@@ -5,6 +5,9 @@ class Coder(BaseAgent):
     def __init__(self, llm) -> None:
         super().__init__(llm)
         self.stop_string = "Objective:"
+        self.guidance_output_variables = ["new_code"]
+        self.guidance_input_variables = ["objective", "plan", "current_step", "source_code"]
+        self.macro_variables = []
         self.prompt_template = """"You're an expert python programmer AI Agent. You solve problems by using Python code,
 and you're capable of providing code snippets, debugging and much more, whenever it's asked of you. You are usually given
 an existing source code that's poorly written and contains many duplications. You should make it better by refactoring and removing errors.
@@ -30,10 +33,12 @@ You should ALWAYS output the full code.
 
 Now please help with the subtask below.
 
-Objective: {objective}
-Plan: {plan}
-Source Code: {source_code}
-New Code:
+Objective: {{objective}}
+Plan: {{plan}}
+Source Code:
+{{source_code}}
+# {{current_step}}
+{{gen 'new_code'}}
 """
 
     def parse_output(self, result):

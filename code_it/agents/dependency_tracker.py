@@ -5,6 +5,10 @@ class DependencyTracker(BaseAgent):
     def __init__(self, llm) -> None:
         super().__init__(llm)
         self.stop_string = "end of planning flow"
+        self.macro_variables = []
+        self.guidance_input_variables = ['plan']
+        self.guidance_output_variables = ['requirements']
+
         self.prompt_template = """
 You're an AI master at understanding code.
 You will be given a task plan, please helps us find the necessary python packages to install.
@@ -41,8 +45,9 @@ END OF PLANNING FLOW
 Finally, remember to add 'End of planning flow' at the end of your planning.
 Keep it simple, stupid. Now let's try a real instance:
 
-Plan: '{plan}'.
+Plan: '{{plan}}'.
 Requirements:
+{{gen 'requirements'}}
 """
 
     def parse_output(self, output):
