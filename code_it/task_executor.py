@@ -75,11 +75,12 @@ class TaskExecutor:
         for _ in range(self.config.dependency_samples):
             dependency_output = self.dependency_tracker.execute_task(plan="\n".join(plan))
             logger.info("Dependency task output: %s", dependency_output)
-            deps = dependency_output["requirements"]
+            deps = dependency_output["requirements"].split("\n")
             for d in deps:
                 d = d.replace("-", "").strip()
                 if " " in d:
                     d = d.split(" ")[0]
+                logger.info("%s", d)
 
                 if self.config.check_package_is_in_pypi:
                     url = f'https://pypi.org/project/{d}'
